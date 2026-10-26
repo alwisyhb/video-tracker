@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.alwi.videotracker',
-  appName: 'Alwi Video Tracker',
+  appName: 'MyFineJob',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

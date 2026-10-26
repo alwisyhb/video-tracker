@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Bell,
   Calendar,
   ChevronRight,
   Flame,
   FolderKanban,
-  Layers,
   Plus,
   Sparkles,
   Wallet
 } from 'lucide-react';
-import { APP_ROADMAP, calculateDueStatus, formatRupiah } from '../constants';
+import { calculateDueStatus, formatRupiah } from '../constants';
 import type { FinanceTransaction, VideoProject } from '../types';
-import { LightDismissDialog } from './LightDismissDialog';
 
 interface DashboardViewProps {
   projects: VideoProject[];
@@ -29,8 +27,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectProject,
   onNavigateTab
 }) => {
-  const [showRoadmapModal, setShowRoadmapModal] = useState(false);
-
   const activeProjectsCount = projects.filter((p) => p.status !== 'Selesai').length;
   const completedCount = projects.filter((p) => p.status === 'Selesai').length;
 
@@ -64,25 +60,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="hero-content">
           <div className="hero-badge">
             <Sparkles size={13} aria-hidden="true" />
-            <span>Menu Utama • Alwi Sihabudin</span>
+            <span>MyFineJob</span>
           </div>
-          <h1 className="hero-title">Halo, Alwi! 👋</h1>
+          <h1 className="hero-title">Selamat Bekerja! 👋</h1>
           <p className="hero-subtitle">
-            Pilih menu di bawah untuk membuka detail proyek, jadwal, atau mengatur keuanganmu.
+            Pantau antrean editan, jadwal deadline, dan pembayaranmu.
           </p>
         </div>
         <div className="hero-actions">
           <button type="button" className="btn-hero-primary" onClick={onOpenAddModal}>
             <Plus size={17} aria-hidden="true" />
             <span>Tambah Pekerjaan</span>
-          </button>
-          <button
-            type="button"
-            className="btn-hero-secondary"
-            onClick={() => setShowRoadmapModal(true)}
-          >
-            <Layers size={16} aria-hidden="true" />
-            <span>Info 5 Tahap</span>
           </button>
         </div>
       </section>
@@ -99,14 +87,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <FolderKanban size={20} aria-hidden="true" />
             </div>
             <span className="overview-nav-hint">
-              Buka Dashboard Proyek <ChevronRight size={15} aria-hidden="true" />
+              DB Proyek <ChevronRight size={15} aria-hidden="true" />
             </span>
           </div>
           <div className="overview-card-main">
             <span className="kpi-label">STATUS PROYEK VIDEO</span>
             <strong className="overview-big-val">{activeProjectsCount} Aktif</strong>
             <span className="kpi-caption">
-              {completedCount} selesai dari total {projects.length} proyek
+              {completedCount} selesai dari {projects.length} proyek
             </span>
           </div>
         </button>
@@ -121,14 +109,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Wallet size={20} aria-hidden="true" />
             </div>
             <span className="overview-nav-hint">
-              Buka Dashboard Keuangan <ChevronRight size={15} aria-hidden="true" />
+              DB Keuangan <ChevronRight size={15} aria-hidden="true" />
             </span>
           </div>
           <div className="overview-card-main">
-            <span className="kpi-label">SALDO BERSIH & KEUANGANKU</span>
+            <span className="kpi-label">SALDO BERSIH</span>
             <strong className="overview-big-val">{formatRupiah(netBalance)}</strong>
             <span className="kpi-caption">
-              Piutang klien belum cair: {formatRupiah(unpaidProjectFee)}
+              Belum dibayar: {formatRupiah(unpaidProjectFee)}
             </span>
           </div>
         </button>
@@ -138,8 +126,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <section className="panel-card">
         <div className="panel-header">
           <div>
-            <h2 className="panel-title">Navigasi Modul Utama</h2>
-            <p className="panel-subtitle">Ketuk menu untuk membuka halaman terkait</p>
+            <h2 className="panel-title">Menu Utama</h2>
+            <p className="panel-subtitle">Ketuk untuk membuka halaman</p>
           </div>
         </div>
 
@@ -153,8 +141,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <FolderKanban size={22} aria-hidden="true" />
             </div>
             <div className="tile-text">
-              <strong>Dashboard Proyek</strong>
-              <span>Daftar kerjaan, 6 tahap & klien</span>
+              <strong>DB Proyek</strong>
+              <span>Daftar kerjaan, tahapan & klien</span>
             </div>
             <ChevronRight size={18} aria-hidden="true" className="tile-arrow" />
           </button>
@@ -168,8 +156,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Wallet size={22} aria-hidden="true" />
             </div>
             <div className="tile-text">
-              <strong>Dashboard Keuangan</strong>
-              <span>Dompet, pemasukan, pengeluaran & invoice</span>
+              <strong>DB Keuangan</strong>
+              <span>Status bayar editan, dompet & invoice</span>
             </div>
             <ChevronRight size={18} aria-hidden="true" className="tile-arrow" />
           </button>
@@ -184,7 +172,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="tile-text">
               <strong>Kalender & Jadwal</strong>
-              <span>Tenggat waktu & target jam harian</span>
+              <span>Tenggat waktu & jam deadline</span>
             </div>
             <ChevronRight size={18} aria-hidden="true" className="tile-arrow" />
           </button>
@@ -198,8 +186,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Bell size={22} aria-hidden="true" />
             </div>
             <div className="tile-text">
-              <strong>Pengingat & Backup</strong>
-              <span>{urgentProjects.length} proyek mendesak • Notifikasi HP</span>
+              <strong>Pengingat Deadline</strong>
+              <span>Notifikasi H-6 jam, H-2 jam & Jam DL</span>
             </div>
             <ChevronRight size={18} aria-hidden="true" className="tile-arrow" />
           </button>
@@ -212,16 +200,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <h2 className="panel-title">
               <Flame size={18} className="text-danger" aria-hidden="true" />
-              <span>Perlu Perhatian Segera ({urgentProjects.length})</span>
+              <span>Deadline Terdekat ({urgentProjects.length})</span>
             </h2>
-            <p className="panel-subtitle">Ketuk baris proyek untuk melihat detail lengkapnya</p>
           </div>
           <button
             type="button"
             className="link-btn"
             onClick={() => onNavigateTab('projects')}
           >
-            <span>Semua Proyek</span>
+            <span>Semua</span>
             <ChevronRight size={15} aria-hidden="true" />
           </button>
         </div>
@@ -256,32 +243,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           })}
         </div>
       </section>
-
-      {/* Modal 5 Tahap Pembangunan (hanya muncul ketika tombol Info 5 Tahap diklik) */}
-      <LightDismissDialog
-        open={showRoadmapModal}
-        onClose={() => setShowRoadmapModal(false)}
-        title="Peta Jalan 5 Tahap Pembangunan Aplikasi"
-        subtitle="Seluruh tahapan sudah terintegrasi di dalam aplikasi Anda"
-      >
-        <div className="roadmap-grid">
-          {APP_ROADMAP.map((item) => (
-            <div key={item.phase} className="roadmap-card">
-              <div className="roadmap-card-top">
-                <span className="roadmap-phase-pill">TAHAP {item.phase}</span>
-                <span className="roadmap-status-badge">✅ {item.status}</span>
-              </div>
-              <h3 className="roadmap-title">{item.title}</h3>
-              <p className="roadmap-subtitle">{item.subtitle}</p>
-              <ul className="roadmap-features">
-                {item.features.map((f, i) => (
-                  <li key={i}>{f}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </LightDismissDialog>
     </div>
   );
 };

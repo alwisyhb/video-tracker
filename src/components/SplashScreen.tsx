@@ -51,7 +51,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           </div>
         </div>
 
-        <h1 className="splash-title">Alwi Tracker</h1>
+        <h1 className="splash-title">MyFineJob</h1>
         <p className="splash-subtitle">Memuat aplikasi...</p>
 
         <div className="splash-minimal-bar" aria-hidden="true">

@@ -127,53 +127,50 @@ body {
   position: sticky;
   top: 0;
   z-index: 30;
-  background-color: color-mix(in oklab, var(--bg-surface) 90%, transparent);
+  background-color: color-mix(in oklab, var(--bg-surface) 92%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 12px 18px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand-area {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   cursor: pointer;
+  min-width: 0;
 }
 
 .brand-logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
   background: linear-gradient(135deg, #4f46e5, #9333ea);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.3);
 }
 
 .brand-title {
   display: block;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 16.5px;
   letter-spacing: -0.02em;
-}
-
-.brand-sub {
-  display: block;
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 600;
+  white-space: nowrap;
 }
 
 .header-right {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .notif-pill-btn {

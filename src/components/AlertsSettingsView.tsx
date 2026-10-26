@@ -147,7 +147,7 @@ export const AlertsSettingsView: React.FC<AlertsSettingsViewProps> = ({
   const handleScheduleAll = async () => {
     const count = await scheduleProjectReminders(projects);
     setNotifFeedback(
-      `✅ Berhasil menjadwalkan pengingat otomatis untuk ${count} proyek yang mendekati tenggat waktu.`
+      `✅ Berhasil menjadwalkan ${count} notifikasi otomatis (6 jam sebelum DL, 2 jam sebelum DL, dan tepat saat jam DL)!`
     );
   };
 
@@ -201,10 +201,10 @@ export const AlertsSettingsView: React.FC<AlertsSettingsViewProps> = ({
             <div>
               <h2 className="panel-title">
                 <BellRing size={18} aria-hidden="true" />
-                <span>Pusat Peringatan Deadline & Revisi</span>
+                <span>Pusat Peringatan Hari Deadline</span>
               </h2>
               <p className="panel-subtitle">
-                Daftar proyek yang sedang dipantau oleh sistem pengingat otomatis
+                Notifikasi HP otomatis dikirim pada: 6 jam sebelum DL, 2 jam sebelum DL, dan tepat saat memasuki jam DL
               </p>
             </div>
           </div>

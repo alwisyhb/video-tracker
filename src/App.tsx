@@ -34,6 +34,7 @@ import {
   saveCloudSyncConfig,
   type CloudSyncConfig
 } from './services/googleSheetsSync';
+import { scheduleProjectReminders } from './services/notificationService';
 import type {
   FinanceTransaction,
   PaymentProfile,
@@ -322,13 +323,18 @@ export const App: React.FC = () => {
     };
   }, [triggerExitAlertOrClose]);
 
-  // Persist to localStorage
+  // Persist to localStorage & auto-schedule H-6h, H-2h, and H-0h deadline notifications
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
     } catch {
       // ignore
     }
+    scheduleProjectReminders(projects);
+    const interval = window.setInterval(() => {
+      scheduleProjectReminders(projects);
+    }, 60000);
+    return () => window.clearInterval(interval);
   }, [projects]);
 
   useEffect(() => {
@@ -608,9 +614,9 @@ export const App: React.FC = () => {
           <div className="splash-logo-core">
             <Clapperboard size={36} aria-hidden="true" />
           </div>
-          <h1 className="splash-title">Sampai Jumpa, Alwi! 👋</h1>
+          <h1 className="splash-title">Sampai Jumpa! 👋</h1>
           <p className="splash-subtitle">
-            Seluruh data proyek dan catatan keuangan Anda telah dikunci & disimpan dengan aman.
+            Seluruh data proyek dan catatan keuangan Anda telah disimpan dengan aman.
           </p>
           <button
             type="button"
@@ -635,7 +641,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Top App Header */}
+      {/* Top App Header (Clean Single-Line Bar) */}
       <header className="app-header">
         <div
           className="brand-area"
@@ -644,12 +650,9 @@ export const App: React.FC = () => {
           title="Ketuk untuk ke Menu Utama"
         >
           <div className="brand-logo">
-            <Clapperboard size={22} aria-hidden="true" />
+            <Clapperboard size={20} aria-hidden="true" />
           </div>
-          <div>
-            <span className="brand-title">Alwi Studio & Finance</span>
-            <span className="brand-sub">Project • Timeline • Personal Finance</span>
-          </div>
+          <span className="brand-title">MyFineJob</span>
         </div>
 
         <div className="header-right">
@@ -659,18 +662,8 @@ export const App: React.FC = () => {
             onClick={() => setIsCloudModalOpen(true)}
             title="Sinkronisasi Google Sheets Cloud"
           >
-            <Cloud size={16} aria-hidden="true" />
-            <span>Cloud Sync</span>
-          </button>
-
-          <button
-            type="button"
-            className="notif-pill-btn"
-            onClick={() => navigateToTab('alerts')}
-            aria-label={`Peringatan deadline mendesak: ${urgentCount} proyek`}
-          >
-            <Bell size={16} aria-hidden="true" />
-            <span>{urgentCount}</span>
+            <Cloud size={15} aria-hidden="true" />
+            <span>Sync</span>
           </button>
 
           {activeTab !== 'dashboard' ? (
@@ -680,7 +673,7 @@ export const App: React.FC = () => {
               onClick={() => navigateToTab('dashboard')}
               title="Kembali ke Menu Awal"
             >
-              <ArrowLeft size={16} aria-hidden="true" />
+              <ArrowLeft size={15} aria-hidden="true" />
               <span>Kembali</span>
             </button>
           ) : (
@@ -690,7 +683,7 @@ export const App: React.FC = () => {
               onClick={triggerExitAlertOrClose}
               title="Tekan dua kali untuk keluar aplikasi"
             >
-              <LogOut size={16} aria-hidden="true" />
+              <LogOut size={15} aria-hidden="true" />
               <span>Keluar</span>
             </button>
           )}
@@ -699,20 +692,6 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="app-main">
-        {/* Tombol Kembali ke Menu Awal saat berada di halaman selain Dashboard Utama */}
-        {activeTab !== 'dashboard' && (
-          <div className="back-to-home-bar">
-            <button
-              type="button"
-              className="back-home-btn"
-              onClick={() => navigateToTab('dashboard')}
-            >
-              <ArrowLeft size={16} aria-hidden="true" />
-              <span>Kembali ke Menu Awal</span>
-            </button>
-          </div>
-        )}
-
         {activeTab === 'dashboard' && (
           <DashboardView
             projects={projects}
