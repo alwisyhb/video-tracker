@@ -223,7 +223,11 @@ export const App: React.FC = () => {
     const handleBackAction = () => {
       const cur = stateRef.current;
 
-      // 1. If any modal is open, close the modal first
+      // 1. If exit modal or top-level modal is open, close it first
+      if (cur.isExitModalOpen) {
+        setIsExitModalOpen(false);
+        return;
+      }
       if (cur.isFormModalOpen) {
         setIsFormModalOpen(false);
         return;
@@ -236,8 +240,11 @@ export const App: React.FC = () => {
         setIsCloudModalOpen(false);
         return;
       }
-      if (cur.isExitModalOpen) {
-        setIsExitModalOpen(false);
+
+      // 1b. If any inner sub-modal (<dialog class="app-dialog" open>) is open in ProjectsView/FinanceView/etc., close it
+      const openDialogs = document.querySelectorAll<HTMLDialogElement>('dialog.app-dialog[open]');
+      if (openDialogs.length > 0) {
+        openDialogs[openDialogs.length - 1].close();
         return;
       }
 
@@ -271,10 +278,14 @@ export const App: React.FC = () => {
       handleBackAction();
     };
 
+    // Expose global callback for Android native OnBackPressedCallback in MainActivity.java
+    (window as unknown as { __handleAndroidBack?: () => void }).__handleAndroidBack = handleBackAction;
+
     window.addEventListener('popstate', onPopState);
     document.addEventListener('backbutton', onHardwareBack);
 
     return () => {
+      delete (window as unknown as { __handleAndroidBack?: () => void }).__handleAndroidBack;
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('backbutton', onHardwareBack);
     };
@@ -562,6 +573,11 @@ export const App: React.FC = () => {
     setIsExitModalOpen(false);
     setIsAppExited(true);
     try {
+      const bridge = (window as unknown as { AndroidAppBridge?: { exitApp?: () => void } }).AndroidAppBridge;
+      if (bridge && typeof bridge.exitApp === 'function') {
+        bridge.exitApp();
+        return;
+      }
       window.close();
     } catch {
       // ignore
@@ -599,7 +615,6 @@ export const App: React.FC = () => {
     <div className="app-shell">
       {showSplash && (
         <SplashScreen
-          projectCount={projects.length}
           onFinish={() => setShowSplash(false)}
         />
       )}
@@ -642,7 +657,17 @@ export const App: React.FC = () => {
             <span>{urgentCount}</span>
           </button>
 
-          {activeTab === 'dashboard' && (
+          {activeTab !== 'dashboard' ? (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => navigateToTab('dashboard')}
+              title="Kembali ke Menu Awal"
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>Kembali</span>
+            </button>
+          ) : (
             <button
               type="button"
               className="icon-btn"
