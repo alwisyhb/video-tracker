@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   Bell,
   Calendar,
   Clapperboard,
+  Cloud,
   FolderKanban,
   LayoutDashboard,
+  LogOut,
   Plus,
   Wallet
 } from 'lucide-react';
 import { AlertsSettingsView } from './components/AlertsSettingsView';
 import { CalendarView } from './components/CalendarView';
+import { CloudSyncModal } from './components/CloudSyncModal';
 import { DashboardView } from './components/DashboardView';
+import { ExitVerificationModal } from './components/ExitVerificationModal';
 import { FinanceView } from './components/FinanceView';
 import { ProjectDetailModal } from './components/ProjectDetailModal';
 import { ProjectFormModal } from './components/ProjectFormModal';
@@ -23,6 +28,13 @@ import {
   calculateDueStatus
 } from './constants';
 import seedProjectsData from './data/seedProjects.json';
+import {
+  loadCloudSyncConfig,
+  pullFromGoogleSheets,
+  pushToGoogleSheets,
+  saveCloudSyncConfig,
+  type CloudSyncConfig
+} from './services/googleSheetsSync';
 import type {
   FinanceTransaction,
   PaymentProfile,
@@ -90,6 +102,7 @@ const DEFAULT_GOALS: SavingsGoal[] = [
 
 export const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [isAppExited, setIsAppExited] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
   const [projects, setProjects] = useState<VideoProject[]>(() => {
@@ -152,10 +165,122 @@ export const App: React.FC = () => {
     return { ...DEFAULT_PAYMENT_PROFILE, monthlyBudgetLimit: 1000000 };
   });
 
+  // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<VideoProject | null>(null);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
+  // Cloud Sync state
+  const [cloudConfig, setCloudConfig] = useState<CloudSyncConfig>(() =>
+    loadCloudSyncConfig()
+  );
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMessage, setSyncStatusMessage] = useState('');
+
+  // Keep refs for back button handler
+  const stateRef = useRef({
+    activeTab,
+    isFormModalOpen,
+    selectedDetailId,
+    isCloudModalOpen,
+    isExitModalOpen
+  });
+  stateRef.current = {
+    activeTab,
+    isFormModalOpen,
+    selectedDetailId,
+    isCloudModalOpen,
+    isExitModalOpen
+  };
+
+  // Navigate to tab and push history state so phone Back button works naturally
+  const navigateToTab = useCallback((nextTab: ActiveTab) => {
+    setActiveTab((prev) => {
+      if (prev !== nextTab) {
+        try {
+          window.history.pushState({ tab: nextTab }, '', `#${nextTab}`);
+        } catch {
+          // ignore
+        }
+      }
+      return nextTab;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Intercept browser/Android hardware Back button
+  useEffect(() => {
+    // Seed initial history guard entry so pressing Back on Home triggers popstate instead of leaving immediately
+    try {
+      window.history.replaceState({ tab: 'dashboard', guard: true }, '', '#dashboard');
+      window.history.pushState({ tab: 'dashboard' }, '', '#dashboard');
+    } catch {
+      // ignore
+    }
+
+    const handleBackAction = () => {
+      const cur = stateRef.current;
+
+      // 1. If any modal is open, close the modal first
+      if (cur.isFormModalOpen) {
+        setIsFormModalOpen(false);
+        return;
+      }
+      if (cur.selectedDetailId) {
+        setSelectedDetailId(null);
+        return;
+      }
+      if (cur.isCloudModalOpen) {
+        setIsCloudModalOpen(false);
+        return;
+      }
+      if (cur.isExitModalOpen) {
+        setIsExitModalOpen(false);
+        return;
+      }
+
+      // 2. If on DB Proyek, DB Keuangan, Kalender, or Pengingat -> Return to Menu Awal (dashboard)
+      if (cur.activeTab !== 'dashboard') {
+        setActiveTab('dashboard');
+        try {
+          window.history.pushState({ tab: 'dashboard' }, '', '#dashboard');
+        } catch {
+          // ignore
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // 3. If already on Menu Awal (dashboard) -> Open 2-Step Exit Verification Modal!
+      setIsExitModalOpen(true);
+      try {
+        window.history.pushState({ tab: 'dashboard' }, '', '#dashboard');
+      } catch {
+        // ignore
+      }
+    };
+
+    const onPopState = () => {
+      handleBackAction();
+    };
+
+    const onHardwareBack = (e: Event) => {
+      e.preventDefault();
+      handleBackAction();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    document.addEventListener('backbutton', onHardwareBack);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      document.removeEventListener('backbutton', onHardwareBack);
+    };
+  }, []);
+
+  // Persist to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
@@ -195,6 +320,82 @@ export const App: React.FC = () => {
       // ignore
     }
   }, [paymentProfile]);
+
+  // Auto-sync to Google Sheets when data changes (if scriptUrl & autoSync are enabled)
+  useEffect(() => {
+    if (!cloudConfig.autoSync || !cloudConfig.scriptUrl.trim()) return;
+    const timer = setTimeout(async () => {
+      const res = await pushToGoogleSheets(cloudConfig, {
+        updatedAt: new Date().toISOString(),
+        projects,
+        clientsList,
+        transactions,
+        savingsGoals,
+        paymentProfile
+      });
+      if (res.ok) {
+        const updated = { ...cloudConfig, lastSyncedAt: new Date().toISOString() };
+        saveCloudSyncConfig(updated);
+      }
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [projects, clientsList, transactions, savingsGoals, paymentProfile, cloudConfig]);
+
+  const handleManualPushCloud = async () => {
+    setIsSyncing(true);
+    setSyncStatusMessage('🔄 Menyimpan seluruh data ke Google Sheets...');
+    const res = await pushToGoogleSheets(cloudConfig, {
+      updatedAt: new Date().toISOString(),
+      projects,
+      clientsList,
+      transactions,
+      savingsGoals,
+      paymentProfile
+    });
+    setIsSyncing(false);
+    setSyncStatusMessage(res.ok ? `✅ ${res.message}` : `⚠️ ${res.message}`);
+    if (res.ok) {
+      const nextCfg = { ...cloudConfig, lastSyncedAt: new Date().toISOString() };
+      setCloudConfig(nextCfg);
+      saveCloudSyncConfig(nextCfg);
+    }
+  };
+
+  const handleManualPullCloud = async () => {
+    setIsSyncing(true);
+    setSyncStatusMessage('🔄 Menarik data terbaru dari Google Sheets...');
+    const res = await pullFromGoogleSheets(cloudConfig);
+    setIsSyncing(false);
+    setSyncStatusMessage(res.ok ? `✅ ${res.message}` : `⚠️ ${res.message}`);
+
+    if (res.ok && res.data) {
+      if (res.data.projects && res.data.projects.length > 0) {
+        setProjects(res.data.projects);
+      }
+      if (res.data.clientsList && res.data.clientsList.length > 0) {
+        setClientsList(res.data.clientsList);
+      }
+      if (res.data.transactions && res.data.transactions.length > 0) {
+        setTransactions(res.data.transactions);
+      }
+      if (res.data.savingsGoals && res.data.savingsGoals.length > 0) {
+        setSavingsGoals(res.data.savingsGoals);
+      }
+      if (res.data.paymentProfile) {
+        setPaymentProfile(res.data.paymentProfile);
+      }
+      const nextCfg = { ...cloudConfig, lastSyncedAt: new Date().toISOString() };
+      setCloudConfig(nextCfg);
+      saveCloudSyncConfig(nextCfg);
+    }
+  };
+
+  const handleSaveCloudConfig = (newCfg: CloudSyncConfig) => {
+    setCloudConfig(newCfg);
+    saveCloudSyncConfig(newCfg);
+    setSyncStatusMessage('✅ Pengaturan Auto-Sync Google Sheets berhasil disimpan!');
+  };
 
   const urgentCount = projects.filter(
     (p) => p.status !== 'Selesai' && calculateDueStatus(p).daysLeft <= 3
@@ -357,6 +558,43 @@ export const App: React.FC = () => {
     setPaymentProfile({ ...DEFAULT_PAYMENT_PROFILE, monthlyBudgetLimit: 1000000 });
   };
 
+  const handleConfirmExitApp = () => {
+    setIsExitModalOpen(false);
+    setIsAppExited(true);
+    try {
+      window.close();
+    } catch {
+      // ignore
+    }
+  };
+
+  // Screen shown after completing 2-step exit verification
+  if (isAppExited) {
+    return (
+      <div className="splash-overlay">
+        <div className="splash-card">
+          <div className="splash-logo-core">
+            <Clapperboard size={36} aria-hidden="true" />
+          </div>
+          <h1 className="splash-title">Sampai Jumpa, Alwi! 👋</h1>
+          <p className="splash-subtitle">
+            Seluruh data proyek dan catatan keuangan Anda telah dikunci & disimpan dengan aman.
+          </p>
+          <button
+            type="button"
+            className="btn-hero-primary"
+            onClick={() => {
+              setIsAppExited(false);
+              setShowSplash(true);
+            }}
+          >
+            Buka Kembali Aplikasi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       {showSplash && (
@@ -370,9 +608,9 @@ export const App: React.FC = () => {
       <header className="app-header">
         <div
           className="brand-area"
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => navigateToTab('dashboard')}
           onDoubleClick={() => setShowSplash(true)}
-          title="Ketuk untuk ke Menu Utama (Ketuk 2x untuk putar ulang animasi loading)"
+          title="Ketuk untuk ke Menu Utama"
         >
           <div className="brand-logo">
             <Clapperboard size={22} aria-hidden="true" />
@@ -386,34 +624,61 @@ export const App: React.FC = () => {
         <div className="header-right">
           <button
             type="button"
-            className="notif-pill-btn"
-            onClick={() => setActiveTab('alerts')}
-            aria-label={`Peringatan deadline mendesak: ${urgentCount} proyek`}
+            className="icon-btn"
+            onClick={() => setIsCloudModalOpen(true)}
+            title="Sinkronisasi Google Sheets Cloud"
           >
-            <Bell size={16} aria-hidden="true" />
-            <span>{urgentCount} Mendesak</span>
+            <Cloud size={16} aria-hidden="true" />
+            <span>Cloud Sync</span>
           </button>
 
           <button
             type="button"
-            className="btn-primary header-add-btn"
-            onClick={handleOpenAddModal}
+            className="notif-pill-btn"
+            onClick={() => navigateToTab('alerts')}
+            aria-label={`Peringatan deadline mendesak: ${urgentCount} proyek`}
           >
-            <Plus size={16} aria-hidden="true" />
-            <span>Tambah Pekerjaan</span>
+            <Bell size={16} aria-hidden="true" />
+            <span>{urgentCount}</span>
           </button>
+
+          {activeTab === 'dashboard' && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setIsExitModalOpen(true)}
+              title="Keluar Aplikasi (Verifikasi 2 Langkah)"
+            >
+              <LogOut size={16} aria-hidden="true" />
+              <span>Keluar</span>
+            </button>
+          )}
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="app-main">
+        {/* Tombol Kembali ke Menu Awal saat berada di halaman selain Dashboard Utama */}
+        {activeTab !== 'dashboard' && (
+          <div className="back-to-home-bar">
+            <button
+              type="button"
+              className="back-home-btn"
+              onClick={() => navigateToTab('dashboard')}
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>Kembali ke Menu Awal</span>
+            </button>
+          </div>
+        )}
+
         {activeTab === 'dashboard' && (
           <DashboardView
             projects={projects}
             transactions={transactions}
             onOpenAddModal={handleOpenAddModal}
             onSelectProject={(p) => setSelectedDetailId(p.id)}
-            onNavigateTab={setActiveTab}
+            onNavigateTab={navigateToTab}
           />
         )}
 
@@ -483,7 +748,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => navigateToTab('dashboard')}
         >
           <LayoutDashboard size={20} aria-hidden="true" />
           <span>Menu Utama</span>
@@ -492,7 +757,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`nav-item ${activeTab === 'projects' ? 'active' : ''}`}
-          onClick={() => setActiveTab('projects')}
+          onClick={() => navigateToTab('projects')}
         >
           <FolderKanban size={20} aria-hidden="true" />
           <span>DB Proyek</span>
@@ -501,7 +766,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`nav-item ${activeTab === 'finance' ? 'active' : ''}`}
-          onClick={() => setActiveTab('finance')}
+          onClick={() => navigateToTab('finance')}
         >
           <Wallet size={20} aria-hidden="true" />
           <span>DB Keuangan</span>
@@ -510,7 +775,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('calendar')}
+          onClick={() => navigateToTab('calendar')}
         >
           <Calendar size={20} aria-hidden="true" />
           <span>Kalender</span>
@@ -519,7 +784,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`nav-item ${activeTab === 'alerts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alerts')}
+          onClick={() => navigateToTab('alerts')}
         >
           <div className="nav-icon-badge-wrap">
             <Bell size={20} aria-hidden="true" />
@@ -529,7 +794,7 @@ export const App: React.FC = () => {
         </button>
       </nav>
 
-      {/* Modal Detail Proyek (Muncul saat baris proyek diklik) */}
+      {/* Modal Detail Proyek */}
       <ProjectDetailModal
         project={selectedDetailProject}
         open={Boolean(selectedDetailProject)}
@@ -551,6 +816,27 @@ export const App: React.FC = () => {
         existingProjects={projects}
         clientsList={clientsList}
         onAddNewClient={handleAddNewClient}
+      />
+
+      {/* Modal Cloud Sync Google Sheets (Opsi 2) */}
+      <CloudSyncModal
+        open={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
+        config={cloudConfig}
+        onSaveConfig={handleSaveCloudConfig}
+        onTriggerPush={handleManualPushCloud}
+        onTriggerPull={handleManualPullCloud}
+        syncStatusMessage={syncStatusMessage}
+        isSyncing={isSyncing}
+      />
+
+      {/* Modal Verifikasi 2 Langkah Saat Keluar Aplikasi */}
+      <ExitVerificationModal
+        open={isExitModalOpen}
+        onClose={() => setIsExitModalOpen(false)}
+        onConfirmExit={handleConfirmExitApp}
+        onSyncAndExit={handleManualPushCloud}
+        hasCloudUrl={Boolean(cloudConfig.scriptUrl.trim())}
       />
     </div>
   );

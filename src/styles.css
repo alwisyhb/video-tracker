@@ -2277,3 +2277,63 @@ body {
 .splash-skip-btn:hover {
   color: #ffffff;
 }
+
+
+/* =========================================================================
+   Back-to-Home Navigation Bar & 2-Step Exit Verification Styles
+   ========================================================================= */
+.back-to-home-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.back-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.back-home-btn:hover {
+  border-color: var(--brand-primary);
+  transform: translateX(-2px);
+}
+
+.exit-step-indicator {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.exit-step-pill {
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.exit-step-pill.active {
+  background: color-mix(in oklab, var(--brand-primary) 18%, var(--bg-surface));
+  border-color: var(--brand-primary);
+  color: var(--text-primary);
+}
+
+.exit-step-pill.done {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #059669;
+}
