@@ -15,7 +15,6 @@ import { AlertsSettingsView } from './components/AlertsSettingsView';
 import { CalendarView } from './components/CalendarView';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { DashboardView } from './components/DashboardView';
-import { ExitVerificationModal } from './components/ExitVerificationModal';
 import { FinanceView } from './components/FinanceView';
 import { ProjectDetailModal } from './components/ProjectDetailModal';
 import { ProjectFormModal } from './components/ProjectFormModal';
@@ -170,7 +169,8 @@ export const App: React.FC = () => {
   const [editingProject, setEditingProject] = useState<VideoProject | null>(null);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
-  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [exitToastVisible, setExitToastVisible] = useState(false);
+  const exitTimerRef = useRef<number | null>(null);
 
   // Cloud Sync state
   const [cloudConfig, setCloudConfig] = useState<CloudSyncConfig>(() =>
@@ -185,18 +185,53 @@ export const App: React.FC = () => {
     isFormModalOpen,
     selectedDetailId,
     isCloudModalOpen,
-    isExitModalOpen
+    exitToastVisible
   });
   stateRef.current = {
     activeTab,
     isFormModalOpen,
     selectedDetailId,
     isCloudModalOpen,
-    isExitModalOpen
+    exitToastVisible
   };
+
+  const triggerExitAppNow = useCallback(() => {
+    if (exitTimerRef.current) {
+      window.clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+    setExitToastVisible(false);
+    setIsAppExited(true);
+    try {
+      const bridge = (window as unknown as { AndroidAppBridge?: { exitApp?: () => void } }).AndroidAppBridge;
+      if (bridge && typeof bridge.exitApp === 'function') {
+        bridge.exitApp();
+        return;
+      }
+      window.close();
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const triggerExitAlertOrClose = useCallback(() => {
+    if (stateRef.current.exitToastVisible) {
+      triggerExitAppNow();
+      return;
+    }
+    setExitToastVisible(true);
+    if (exitTimerRef.current) {
+      window.clearTimeout(exitTimerRef.current);
+    }
+    exitTimerRef.current = window.setTimeout(() => {
+      setExitToastVisible(false);
+      exitTimerRef.current = null;
+    }, 1800);
+  }, [triggerExitAppNow]);
 
   // Navigate to tab and push history state so phone Back button works naturally
   const navigateToTab = useCallback((nextTab: ActiveTab) => {
+    setExitToastVisible(false);
     setActiveTab((prev) => {
       if (prev !== nextTab) {
         try {
@@ -223,11 +258,7 @@ export const App: React.FC = () => {
     const handleBackAction = () => {
       const cur = stateRef.current;
 
-      // 1. If exit modal or top-level modal is open, close it first
-      if (cur.isExitModalOpen) {
-        setIsExitModalOpen(false);
-        return;
-      }
+      // 1. If top-level modal is open, close it first
       if (cur.isFormModalOpen) {
         setIsFormModalOpen(false);
         return;
@@ -260,8 +291,8 @@ export const App: React.FC = () => {
         return;
       }
 
-      // 3. If already on Menu Awal (dashboard) -> Open 2-Step Exit Verification Modal!
-      setIsExitModalOpen(true);
+      // 3. If already on Menu Awal (dashboard) -> Show 1-2 second exit pop-up alert, or exit if pressed again within 1.8s
+      triggerExitAlertOrClose();
       try {
         window.history.pushState({ tab: 'dashboard' }, '', '#dashboard');
       } catch {
@@ -289,7 +320,7 @@ export const App: React.FC = () => {
       window.removeEventListener('popstate', onPopState);
       document.removeEventListener('backbutton', onHardwareBack);
     };
-  }, []);
+  }, [triggerExitAlertOrClose]);
 
   // Persist to localStorage
   useEffect(() => {
@@ -569,22 +600,7 @@ export const App: React.FC = () => {
     setPaymentProfile({ ...DEFAULT_PAYMENT_PROFILE, monthlyBudgetLimit: 1000000 });
   };
 
-  const handleConfirmExitApp = () => {
-    setIsExitModalOpen(false);
-    setIsAppExited(true);
-    try {
-      const bridge = (window as unknown as { AndroidAppBridge?: { exitApp?: () => void } }).AndroidAppBridge;
-      if (bridge && typeof bridge.exitApp === 'function') {
-        bridge.exitApp();
-        return;
-      }
-      window.close();
-    } catch {
-      // ignore
-    }
-  };
-
-  // Screen shown after completing 2-step exit verification
+  // Screen shown after exiting in web browser fallback
   if (isAppExited) {
     return (
       <div className="splash-overlay">
@@ -671,8 +687,8 @@ export const App: React.FC = () => {
             <button
               type="button"
               className="icon-btn"
-              onClick={() => setIsExitModalOpen(true)}
-              title="Keluar Aplikasi (Verifikasi 2 Langkah)"
+              onClick={triggerExitAlertOrClose}
+              title="Tekan dua kali untuk keluar aplikasi"
             >
               <LogOut size={16} aria-hidden="true" />
               <span>Keluar</span>
@@ -855,14 +871,21 @@ export const App: React.FC = () => {
         isSyncing={isSyncing}
       />
 
-      {/* Modal Verifikasi 2 Langkah Saat Keluar Aplikasi */}
-      <ExitVerificationModal
-        open={isExitModalOpen}
-        onClose={() => setIsExitModalOpen(false)}
-        onConfirmExit={handleConfirmExitApp}
-        onSyncAndExit={handleManualPushCloud}
-        hasCloudUrl={Boolean(cloudConfig.scriptUrl.trim())}
-      />
+      {/* Pop-Up Alert Keluar 1-2 Detik Saat di Menu Utama */}
+      {exitToastVisible && (
+        <div
+          className="exit-toast-alert"
+          role="alert"
+          aria-live="assertive"
+          onClick={triggerExitAppNow}
+          title="Ketuk atau tekan kembali sekali lagi untuk keluar"
+        >
+          <span className="exit-toast-icon" aria-hidden="true">
+            <LogOut size={14} />
+          </span>
+          <span>Tekan sekali lagi untuk keluar aplikasi</span>
+        </div>
+      )}
     </div>
   );
 };

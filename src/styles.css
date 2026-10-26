@@ -2355,3 +2355,48 @@ body {
   border-radius: 999px;
   transition: width 0.08s linear;
 }
+
+/* 1-2 Second Exit Pop-Up Alert Toast */
+.exit-toast-alert {
+  position: fixed;
+  left: 50%;
+  bottom: 86px;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #ffffff;
+  border: 1.5px solid rgba(99, 102, 241, 0.55);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: exitToastPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.exit-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+}
+
+@keyframes exitToastPop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
