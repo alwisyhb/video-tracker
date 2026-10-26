@@ -1,0 +1,18 @@
+{
+  "name": "Alwi Studio & Finance Tracker",
+  "short_name": "Alwi Tracker",
+  "description": "Aplikasi Manajemen Proyek Video Editor, Kalender Produksi & Keuangan Pribadi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

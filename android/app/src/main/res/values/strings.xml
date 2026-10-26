@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Alwi Video Tracker</string>
+    <string name="title_activity_main">Alwi Video Tracker</string>
+    <string name="package_name">com.alwi.videotracker</string>
+    <string name="custom_url_scheme">com.alwi.videotracker</string>
+</resources>
